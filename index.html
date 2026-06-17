@@ -1,32 +1,388 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en">
 
 <head>
-    <meta charset="utf-8">
-    <meta http-equiv="X-UA-Compatible" content="IE=edge">
-    <meta name="viewport" content="initial-scale=1,user-scalable=no,maximum-scale=1,width=device-width">
-    <meta name="mobile-web-app-capable" content="yes">
-    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WHARF - Hydrographic Control Station</title>
+    
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Lexend:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="css/leaflet.css">
     <link rel="stylesheet" href="css/L.Control.Layers.Tree.css">
     <link rel="stylesheet" href="css/qgis2web.css">
     <link rel="stylesheet" href="css/fontawesome-all.min.css">
+
     <style>
-        html,
-        body,
+        /* --- CYBER TECH VARIABLES --- */
+        :root {
+            --bg-dark-navy: #060d1a;
+            --bg-solid-navy: #001a4d;
+            --accent-cyber-cyan: #00f5ff;
+            --glass-bg: rgba(10, 25, 47, 0.85);
+            --glass-border: rgba(0, 245, 255, 0.2);
+            --neon-glow: 0 0 20px rgba(0, 245, 255, 0.25);
+            --header-height: 70px;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            font-family: 'Lexend', sans-serif;
+            box-sizing: border-box;
+        }
+
+        html, body {
+            width: 100%;
+            height: 100%;
+            background-color: var(--bg-dark-navy);
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* --- 1. MODERN TOP HEADER --- */
+        .webgis-header {
+            width: 100%;
+            height: var(--header-height);
+            background: linear-gradient(90deg, #0a192f 0%, #00112c 100%);
+            border-bottom: 2px solid rgba(0, 245, 255, 0.3);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 30px;
+            box-shadow: 0 4px 25px rgba(0,0,0,0.5);
+            z-index: 1100;
+        }
+
+        .header-left {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+
+        .header-left .logo-icon {
+            font-size: 24px;
+            color: var(--accent-cyber-cyan);
+            text-shadow: 0 0 10px var(--accent-cyber-cyan);
+        }
+
+        .header-left h1 {
+            font-size: 18px;
+            font-weight: 700;
+            color: #ffffff;
+            letter-spacing: 2px;
+            margin: 0;
+        }
+
+        .header-left p {
+            font-size: 11px;
+            color: #64748b;
+            margin: 0;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .header-right {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .status-badge {
+            background: rgba(0, 245, 255, 0.08);
+            border: 1px solid var(--accent-cyber-cyan);
+            padding: 6px 14px;
+            border-radius: 20px;
+            font-size: 11px;
+            font-weight: 600;
+            color: var(--accent-cyber-cyan);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .pulse-dot {
+            width: 8px;
+            height: 8px;
+            background-color: var(--accent-cyber-cyan);
+            border-radius: 50%;
+            box-shadow: 0 0 8px var(--accent-cyber-cyan);
+            animation: pulse 1.5s infinite;
+        }
+
+        /* --- 2. FLOATING MAP CONTAINER (WITH MARGINS) --- */
+        .workspace-wrapper {
+            flex: 1;
+            padding: 20px;
+            position: relative;
+            width: 100%;
+            height: calc(100% - var(--header-height));
+        }
+
+        .map-frame {
+            width: 100%;
+            height: 100%;
+            border-radius: 16px;
+            overflow: hidden;
+            position: relative;
+            border: 1px solid var(--glass-border);
+            box-shadow: 0 20px 50px rgba(0,0,0,0.6), var(--neon-glow);
+        }
+
         #map {
             width: 100%;
             height: 100%;
-            padding: 0;
+            z-index: 1;
+            background-color: #111;
+        }
+
+        /* --- HUD CONTROL PANEL --- */
+        .cyber-panel {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            z-index: 1000;
+            background: var(--glass-bg);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid var(--glass-border);
+            border-radius: 14px;
+            padding: 16px;
+            width: 280px;
+            max-height: calc(100% - 40px);
+            overflow-y: auto;
+            box-shadow: 0 15px 35px rgba(0, 0, 0, 0.5);
+        }
+
+        .cyber-panel::-webkit-scrollbar { width: 4px; }
+        .cyber-panel::-webkit-scrollbar-thumb { background: var(--accent-cyber-cyan); border-radius: 10px; }
+
+        .panel-title {
+            font-size: 11px;
+            font-weight: 700;
+            color: var(--accent-cyber-cyan);
+            letter-spacing: 1px;
+            text-transform: uppercase;
+            margin-bottom: 12px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .group-title {
+            font-size: 10px;
+            font-weight: 600;
+            color: #64748b;
+            margin: 12px 0 6px 2px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .cyber-label {
+            display: flex;
+            align-items: center;
+            padding: 8px 10px;
+            margin-bottom: 5px;
+            background: rgba(255, 255, 255, 0.02);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            font-size: 11px;
+            font-weight: 500;
+            color: #cbd5e1;
+        }
+
+        .cyber-label:hover {
+            background: rgba(0, 245, 255, 0.06);
+            border-color: rgba(0, 245, 255, 0.3);
+            color: #ffffff;
+        }
+
+        .cyber-label input {
+            margin-right: 10px;
+            accent-color: var(--accent-cyber-cyan);
+            cursor: pointer;
+            width: 14px;
+            height: 14px;
+        }
+
+        /* --- FLOATING INFO OVERLAY --- */
+        .cyber-stats {
+            position: absolute;
+            bottom: 40px; /* Dinaikkan sedikit agar tidak bertabrakan dengan Atribusi Leaflet */
+            right: 20px;
+            z-index: 1000;
+            background: var(--glass-bg);
+            backdrop-filter: blur(8px);
+            border: 1px solid var(--glass-border);
+            border-radius: 10px;
+            padding: 10px 14px;
+            pointer-events: none;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.4);
+            text-align: right;
+        }
+
+        .cyber-stats h4 {
+            font-size: 12px;
+            color: #ffffff;
+            margin-bottom: 2px;
+        }
+
+        .cyber-stats p {
+            font-size: 9px;
+            color: var(--accent-cyber-cyan);
             margin: 0;
+            text-transform: uppercase;
+        }
+
+        /* --- CUSTOM LEAFLET ATTRIBUTION STYLING --- */
+        .leaflet-container .leaflet-control-attribution {
+            background: rgba(6, 13, 26, 0.8) !important;
+            color: #64748b !important;
+            border-top-left-radius: 8px;
+            border: 1px solid rgba(0, 245, 255, 0.1);
+            font-size: 10px;
+        }
+        .leaflet-container .leaflet-control-attribution a {
+            color: var(--accent-cyber-cyan) !important;
+            text-decoration: none;
+        }
+
+        /* --- ZOOM CONTROLS MOD --- */
+        .leaflet-bar { border: none !important; box-shadow: 0 4px 15px rgba(0,0,0,0.4) !important; }
+        .leaflet-bar a {
+            background: var(--glass-bg) !important; color: #ffffff !important;
+            border-bottom: 1px solid rgba(0,245,255,0.2) !important; backdrop-filter: blur(8px);
+        }
+        .leaflet-bar a:hover { color: var(--accent-cyber-cyan) !important; }
+
+        @keyframes pulse {
+            0% { transform: scale(0.9); opacity: 0.6; }
+            50% { transform: scale(1.2); opacity: 1; }
+            100% { transform: scale(0.9); opacity: 0.6; }
+        }
+
+        /* --- RESPONSIVE BREAKPOINTS (MEDIA QUERIES) --- */
+        @media (max-width: 768px) {
+            body, html {
+                overflow-y: auto;
+            }
+            .webgis-header {
+                padding: 10px 15px;
+                height: auto;
+                min-height: 70px;
+                flex-direction: column;
+                justify-content: center;
+                gap: 8px;
+            }
+            .header-left {
+                text-align: center;
+                flex-direction: column;
+                gap: 4px;
+            }
+            .header-left h1 { font-size: 16px; }
+            .header-left p { font-size: 9px; }
+            .header-right { width: 100%; justify-content: center; }
+
+            .workspace-wrapper {
+                height: auto;
+                min-height: calc(100vh - 100px);
+                padding: 10px;
+                display: flex;
+                flex-direction: column;
+                gap: 12px;
+            }
+            .map-frame {
+                height: 50vh;
+                order: 1;
+            }
+            .cyber-panel {
+                position: static;
+                width: 100%;
+                max-height: none;
+                order: 2;
+                box-shadow: none;
+            }
+            .cyber-stats {
+                position: absolute;
+                bottom: 30px;
+                right: 10px;
+                padding: 6px 10px;
+            }
+            .cyber-stats h4 { font-size: 10px; }
+            .cyber-stats p { font-size: 8px; }
         }
     </style>
-    <title></title>
 </head>
 
 <body>
-    <div id="map">
+
+    <header class="webgis-header">
+        <div class="header-left">
+            <i class="bi bi-shield-shaded logo-icon"></i>
+            <div>
+                <h1>WHARF</h1>
+                <p>WebGIS for Hydrographic Research Framework</p>
+            </div>
+        </div>
+        <div class="header-right">
+            <div class="status-badge">
+                <div class="pulse-dot"></div> multibeam bathymetric data
+            </div>
+        </div>
+    </header>
+
+    <div class="workspace-wrapper">
+        <div class="map-frame">
+            
+            <div class="cyber-panel">
+                <div class="panel-title"><i class="bi bi-sliders"></i> WORKSPACE CORE</div>
+                
+                <div class="group-title">Basemap Environment</div>
+                <label class="cyber-label">
+                    <input type="radio" name="basemap" id="base-street" checked onchange="switchBasemapEngine()">
+                    🌐 Google Maps Street
+                </label>
+                <label class="cyber-label">
+                    <input type="radio" name="basemap" id="base-sat" onchange="switchBasemapEngine()">
+                    🛰️ Google Maps Satellite
+                </label>
+                <label class="cyber-label">
+                    <input type="radio" name="basemap" id="base-dark" onchange="switchBasemapEngine()">
+                    🌌 CartoDB Dark Matter
+                </label>
+
+                <div class="group-title">High-Res MBES Overlays</div>
+                <label class="cyber-label">
+                    <input type="checkbox" id="lyr-bathy" checked onchange="syncOverlayEngine()">
+                    📊 Pseudocolored Bathymetry
+                </label>
+                <label class="cyber-label">
+                    <input type="checkbox" id="lyr-slope" checked onchange="syncOverlayEngine()">
+                    📐 Slope Analysis
+                </label>
+                <label class="cyber-label">
+                    <input type="checkbox" id="lyr-backscatter" checked onchange="syncOverlayEngine()">
+                    📡 Backscatter Data
+                </label>
+                <label class="cyber-label">
+                    <input type="checkbox" id="lyr-relief" checked onchange="syncOverlayEngine()">
+                    🏔️ Relief Map
+                </label>
+            </div>
+
+            <div class="cyber-stats">
+                <h4>NIEUWERKERK SEAMOUNT</h4>
+                <p>Banda Sea Area &bull; Research Grid</p>
+            </div>
+
+            <div id="map"></div>
+
+        </div>
     </div>
+
     <script src="js/qgis2web_expressions.js"></script>
     <script src="js/leaflet.js"></script>
     <script src="js/L.Control.Layers.Tree.min.js"></script>
@@ -37,131 +393,86 @@
     <script src="js/rbush.min.js"></script>
     <script src="js/labelgun.min.js"></script>
     <script src="js/labels.js"></script>
+    
     <script>
+        // Init Map Engine
         var map = L.map('map', {
-            zoomControl: false, maxZoom: 28, minZoom: 1
-        }).fitBounds([[-7.226920061182551, 123.82074737056077], [-5.752117943041719, 126.10865979224407]]);
-        var hash = new L.Hash(map);
-
-        map.attributionControl.setPrefix(
-            '<a href="https://github.com/tomchadwin/qgis2web" target="_blank">qgis2web</a> &middot; ' +
-            '<a href="https://leafletjs.com" title="A JS library for interactive maps">Leaflet</a> &middot; ' +
-            '<a href="https://qgis.org">QGIS</a> &middot; ' +
-            '<a href="https://developers.google.com/maps/documentation/javascript/policies">Google</a>'
-        );
-
-        var autolinker = new Autolinker({ truncate: { length: 30, location: 'smart' } });
-        // remove popup's row if "visible-with-data"
-        function removeEmptyRowsFromPopupContent(content, feature) {
-            var tempDiv = document.createElement('div');
-            tempDiv.innerHTML = content;
-            var rows = tempDiv.querySelectorAll('tr');
-            for (var i = 0; i < rows.length; i++) {
-                var td = rows[i].querySelector('td.visible-with-data');
-                var key = td ? td.id : '';
-                if (td && td.classList.contains('visible-with-data') && feature.properties[key] == null) {
-                    rows[i].parentNode.removeChild(rows[i]);
-                }
-            }
-            return tempDiv.innerHTML;
-        }
-
-
-        // add class to format popup if it contains media
-        function addClassToPopupIfMedia(content, popup) {
-            var tempDiv = document.createElement('div');
-            tempDiv.innerHTML = content;
-            if (tempDiv.querySelector('td img')) {
-                popup._contentNode.classList.add('media');
-                // Delay to force the redraw
-                setTimeout(function () {
-                    popup.update();
-                }, 10);
-            } else {
-                popup._contentNode.classList.remove('media');
-            }
-        }
-        var zoomControl = L.control.zoom({
-            position: 'topleft'
-        }).addTo(map);
-        var bounds_group = new L.featureGroup([]);
-        function setBounds() {
-        }
-        map.createPane('pane_GoogleMaps_0');
-        map.getPane('pane_GoogleMaps_0').style.zIndex = 400;
-        var layer_GoogleMaps_0 = L.tileLayer('https://mt1.google.com/vt/lyrs=m&x={x}&y={y}&z={z}', {
-            pane: 'pane_GoogleMaps_0',
-            opacity: 1.0,
-            attribution: '',
+            zoomControl: false, 
+            maxZoom: 28, 
             minZoom: 1,
+            attributionControl: true // Diaktifkan untuk menampung hak cipta & info engine
+        }).fitBounds([[-7.226920061182551, 123.82074737056077], [-5.752117943041719, 126.10865979224407]]);
+        
+        var hash = new L.Hash(map);
+        L.control.zoom({ position: 'bottomleft' }).addTo(map);
+
+        // Menambahkan atribusi qgis2web dan leaflet secara statis di awal
+        map.attributionControl.setPrefix('Made with <a href="https://github.com/tomchadwin/qgis2web" target="_blank">qgis2web</a> &middot; <a href="https://leafletjs.com" title="A JS library for interactive maps">Leaflet</a>');
+
+        // Map Panes Setup 
+        map.createPane('pane_Basemaps'); map.getPane('pane_Basemaps').style.zIndex = 400;
+        map.createPane('pane_Out_MBES_Relief_1'); map.getPane('pane_Out_MBES_Relief_1').style.zIndex = 401;
+        map.createPane('pane_Out_MBES_Backscatter_2'); map.getPane('pane_Out_MBES_Backscatter_2').style.zIndex = 402;
+        map.createPane('pane_Out_MBES_Slope_3'); map.getPane('pane_Out_MBES_Slope_3').style.zIndex = 403;
+        map.createPane('pane_Out_MBES_Pseudocolored_Bathymetry_4'); map.getPane('pane_Out_MBES_Pseudocolored_Bathymetry_4').style.zIndex = 404;
+
+        // 3 Basemap Object Definitions with individual Attributions
+        var basemap_Street = L.tileLayer('https://mt1.google.com/vt/lyrs=m&x={x}&y={y}&z={z}', { 
+            pane: 'pane_Basemaps', 
             maxZoom: 28,
+            attribution: '&copy; Google Maps Street'
         });
-        layer_GoogleMaps_0;
-        map.addLayer(layer_GoogleMaps_0);
-        map.createPane('pane_Out_MBES_Relief_1');
-        map.getPane('pane_Out_MBES_Relief_1').style.zIndex = 401;
-        var img_Out_MBES_Relief_1 = 'data/Out_MBES_Relief_1.png';
-        var img_bounds_Out_MBES_Relief_1 = [[-7.243339884021147, 124.00135268237335], [-5.921562861870387, 125.86589667222368]];
-        var layer_Out_MBES_Relief_1 = new L.imageOverlay(img_Out_MBES_Relief_1,
-            img_bounds_Out_MBES_Relief_1,
-            { pane: 'pane_Out_MBES_Relief_1' });
-        bounds_group.addLayer(layer_Out_MBES_Relief_1);
-        map.addLayer(layer_Out_MBES_Relief_1);
-        map.createPane('pane_Out_MBES_Backscatter_2');
-        map.getPane('pane_Out_MBES_Backscatter_2').style.zIndex = 402;
-        var img_Out_MBES_Backscatter_2 = 'data/Out_MBES_Backscatter_2.png';
-        var img_bounds_Out_MBES_Backscatter_2 = [[-7.243339884021147, 124.00135268237335], [-5.921562861870387, 125.86589667222368]];
-        var layer_Out_MBES_Backscatter_2 = new L.imageOverlay(img_Out_MBES_Backscatter_2,
-            img_bounds_Out_MBES_Backscatter_2,
-            { pane: 'pane_Out_MBES_Backscatter_2' });
-        bounds_group.addLayer(layer_Out_MBES_Backscatter_2);
-        map.addLayer(layer_Out_MBES_Backscatter_2);
-        map.createPane('pane_Out_MBES_Slope_3');
-        map.getPane('pane_Out_MBES_Slope_3').style.zIndex = 403;
-        var img_Out_MBES_Slope_3 = 'data/Out_MBES_Slope_3.png';
-        var img_bounds_Out_MBES_Slope_3 = [[-7.243339884021147, 124.00135268237335], [-5.921562861870387, 125.86589667222368]];
-        var layer_Out_MBES_Slope_3 = new L.imageOverlay(img_Out_MBES_Slope_3,
-            img_bounds_Out_MBES_Slope_3,
-            { pane: 'pane_Out_MBES_Slope_3' });
-        bounds_group.addLayer(layer_Out_MBES_Slope_3);
-        map.addLayer(layer_Out_MBES_Slope_3);
-        map.createPane('pane_Out_MBES_Pseudocolored_Bathymetry_4');
-        map.getPane('pane_Out_MBES_Pseudocolored_Bathymetry_4').style.zIndex = 404;
-        var img_Out_MBES_Pseudocolored_Bathymetry_4 = 'data/Out_MBES_Pseudocolored_Bathymetry_4.png';
-        var img_bounds_Out_MBES_Pseudocolored_Bathymetry_4 = [[-7.243339884021147, 124.00135268237335], [-5.921562861870387, 125.86589667222368]];
-        var layer_Out_MBES_Pseudocolored_Bathymetry_4 = new L.imageOverlay(img_Out_MBES_Pseudocolored_Bathymetry_4,
-            img_bounds_Out_MBES_Pseudocolored_Bathymetry_4,
-            { pane: 'pane_Out_MBES_Pseudocolored_Bathymetry_4' });
-        bounds_group.addLayer(layer_Out_MBES_Pseudocolored_Bathymetry_4);
-        map.addLayer(layer_Out_MBES_Pseudocolored_Bathymetry_4);
-        setBounds();
-        L.ImageOverlay.include({
-            getBounds: function () {
-                return this._bounds;
-            }
+        var basemap_Sat = L.tileLayer('https://mt1.google.com/vt/lyrs=s&x={x}&y={y}&z={z}', { 
+            pane: 'pane_Basemaps', 
+            maxZoom: 28,
+            attribution: '&copy; Google Maps Satellite'
         });
+        var basemap_Dark = L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', { 
+            pane: 'pane_Basemaps', 
+            maxZoom: 28,
+            attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>'
+        });
+        
+        // Load default basemap (Street)
+        map.addLayer(basemap_Street);
 
-        // Definisikan base map
-        var baseMaps = {
-            "Google Maps": layer_GoogleMaps_0
-        };
+        // Raster Layer Definitions
+        var img_bounds = [[-7.243339884021147, 124.00135268237335], [-5.921562861870387, 125.86589667222368]];
 
-        // Definisikan overlay maps
-        var overlayMaps = {
-            "Relief": layer_Out_MBES_Relief_1,
-            "Backscatter": layer_Out_MBES_Backscatter_2,
-            "Slope": layer_Out_MBES_Slope_3,
-            "Pseudocolored Bathymetry": layer_Out_MBES_Pseudocolored_Bathymetry_4
-        };
+        var layer_Out_MBES_Relief_1 = new L.imageOverlay('data/Out_MBES_Relief_1.png', img_bounds, { pane: 'pane_Out_MBES_Relief_1' }); map.addLayer(layer_Out_MBES_Relief_1);
+        var layer_Out_MBES_Backscatter_2 = new L.imageOverlay('data/Out_MBES_Backscatter_2.png', img_bounds, { pane: 'pane_Out_MBES_Backscatter_2' }); map.addLayer(layer_Out_MBES_Backscatter_2);
+        var layer_Out_MBES_Slope_3 = new L.imageOverlay('data/Out_MBES_Slope_3.png', img_bounds, { pane: 'pane_Out_MBES_Slope_3' }); map.addLayer(layer_Out_MBES_Slope_3);
+        var layer_Out_MBES_Pseudocolored_Bathymetry_4 = new L.imageOverlay('data/Out_MBES_Pseudocolored_Bathymetry_4.png', img_bounds, { pane: 'pane_Out_MBES_Pseudocolored_Bathymetry_4' }); map.addLayer(layer_Out_MBES_Pseudocolored_Bathymetry_4);
 
-        // Membalik urutan layer sebelum dimasukkan ke control
-        var reversedOverlayMaps = Object.fromEntries(Object.entries(overlayMaps).reverse());
+        // SWITCH BASEMAP ALGORITHM
+        function switchBasemapEngine() {
+            var streetChecked = document.getElementById('base-street').checked;
+            var satChecked = document.getElementById('base-sat').checked;
+            var darkChecked = document.getElementById('base-dark').checked;
 
-        L.control.layers(baseMaps, reversedOverlayMaps, {
-            collapsed: false
-        }).addTo(map);
+            // Hapus basemap yang sedang aktif agar tidak tumpang tindih memori
+            if (map.hasLayer(basemap_Street)) map.removeLayer(basemap_Street);
+            if (map.hasLayer(basemap_Sat)) map.removeLayer(basemap_Sat);
+            if (map.hasLayer(basemap_Dark)) map.removeLayer(basemap_Dark);
 
+            // Suntik basemap terpilih ke dalam Map
+            if (streetChecked) map.addLayer(basemap_Street);
+            if (satChecked) map.addLayer(basemap_Sat);
+            if (darkChecked) map.addLayer(basemap_Dark);
+        }
 
+        // SYNC OVERLAY RASTER ALGORITHM
+        function syncOverlayEngine() {
+            var bathyOn = document.getElementById('lyr-bathy').checked;
+            var slopeOn = document.getElementById('lyr-slope').checked;
+            var backOn = document.getElementById('lyr-backscatter').checked;
+            var reliefOn = document.getElementById('lyr-relief').checked;
+
+            bathyOn ? (!map.hasLayer(layer_Out_MBES_Pseudocolored_Bathymetry_4) && map.addLayer(layer_Out_MBES_Pseudocolored_Bathymetry_4)) : (map.hasLayer(layer_Out_MBES_Pseudocolored_Bathymetry_4) && map.removeLayer(layer_Out_MBES_Pseudocolored_Bathymetry_4));
+            slopeOn ? (!map.hasLayer(layer_Out_MBES_Slope_3) && map.addLayer(layer_Out_MBES_Slope_3)) : (map.hasLayer(layer_Out_MBES_Slope_3) && map.removeLayer(layer_Out_MBES_Slope_3));
+            backOn ? (!map.hasLayer(layer_Out_MBES_Backscatter_2) && map.addLayer(layer_Out_MBES_Backscatter_2)) : (map.hasLayer(layer_Out_MBES_Backscatter_2) && map.removeLayer(layer_Out_MBES_Backscatter_2));
+            reliefOn ? (!map.hasLayer(layer_Out_MBES_Relief_1) && map.addLayer(layer_Out_MBES_Relief_1)) : (map.hasLayer(layer_Out_MBES_Relief_1) && map.removeLayer(layer_Out_MBES_Relief_1));
+        }
     </script>
 </body>
 
